@@ -14,7 +14,13 @@ from wagtail_block_fields import ListField, StructField
 
 from PIL import Image as PILImage
 
-from .testapp.models import AddressBlock, ChooserTestModel, NestedTestModel, TestModel
+from .testapp.models import (
+    AddressBlock,
+    ChooserTestModel,
+    NestedTestModel,
+    StreamBlockTestModel,
+    TestModel,
+)
 
 
 def create_test_image(name="test.png"):
@@ -164,6 +170,26 @@ class StructFieldTests(TestCase):
         loaded = NestedTestModel.objects.get(pk=obj.pk)
         self.assertEqual(loaded.nested_addresses["primary"]["city"], "Amsterdam")
         self.assertEqual(loaded.nested_addresses["secondary"]["city"], "Rotterdam")
+
+    def test_nested_streamblock_empty(self):
+        obj = StreamBlockTestModel.objects.create(name="Test")
+        loaded = StreamBlockTestModel.objects.get(pk=obj.pk)
+        self.assertIsNone(loaded.section["heading"])
+        self.assertEqual(len(loaded.section["content"]), 0)
+
+    def test_nested_streamblock_with_data(self):
+        obj = StreamBlockTestModel.objects.create(
+            name="Test",
+            section={
+                "heading": "My Section",
+                "content": [
+                    {"type": "paragraph", "value": "<p>Hello</p>"},
+                ],
+            },
+        )
+        loaded = StreamBlockTestModel.objects.get(pk=obj.pk)
+        self.assertEqual(loaded.section["heading"], "My Section")
+        self.assertEqual(len(loaded.section["content"]), 1)
 
 
 class ListFieldTests(TestCase):

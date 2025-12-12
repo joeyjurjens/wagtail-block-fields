@@ -195,7 +195,7 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name="ValidationTestModel",
+            name="StreamBlockTestModel",
             fields=[
                 (
                     "id",
@@ -208,11 +208,20 @@ class Migration(migrations.Migration):
                 ),
                 ("name", models.CharField(max_length=255)),
                 (
-                    "required_tags",
-                    wagtail_block_fields.fields.ListField(
-                        0,
+                    "section",
+                    wagtail_block_fields.fields.StructField(
+                        [("heading", 0), ("content", 3)],
                         blank=True,
-                        block_lookup={0: ("wagtail.blocks.CharBlock", (), {})},
+                        block_lookup={
+                            0: ("wagtail.blocks.CharBlock", (), {}),
+                            1: ("wagtail.blocks.RichTextBlock", (), {}),
+                            2: ("wagtail.images.blocks.ImageChooserBlock", (), {}),
+                            3: (
+                                "wagtail.blocks.StreamBlock",
+                                [[("paragraph", 1), ("image", 2)]],
+                                {},
+                            ),
+                        },
                         null=True,
                     ),
                 ),

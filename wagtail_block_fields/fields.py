@@ -22,6 +22,34 @@ from wagtail.blocks.struct_block import StructValue
 from wagtail.fields import Creator
 
 
+class _ListBlock(ListBlock):
+    """Fixes missing form data handling for nested blocks."""
+
+    def value_from_datadict(self, data, files, prefix):
+        if self.value_omitted_from_data(data, files, prefix):
+            return self.get_default()
+        return super().value_from_datadict(data, files, prefix)
+
+
+class _StructBlock(StructBlock):
+    """Fixes missing form data handling for nested blocks."""
+
+    def value_from_datadict(self, data, files, prefix):
+        return self._to_struct_value(
+            [
+                (
+                    name,
+                    (
+                        block.value_from_datadict(data, files, f"{prefix}-{name}")
+                        if not block.value_omitted_from_data(data, files, f"{prefix}-{name}")
+                        else block.get_default()
+                    ),
+                )
+                for name, block in self.child_blocks.items()
+            ]
+        )
+
+
 class BaseBlockField(models.Field):
     def __init__(self, block_lookup=None, **kwargs):
         self.block_lookup = block_lookup
@@ -115,7 +143,7 @@ class StructField(BaseBlockField):
                         child_blocks.append((name, lookup.get_block(child_block)))
                     else:
                         child_blocks.append((name, child_block))
-                block = StructBlock(child_blocks)
+                block = _StructBlock(child_blocks)
             else:
                 raise TypeError(
                     f"StructField requires a StructBlock instance, class, or list of "
@@ -124,6 +152,9 @@ class StructField(BaseBlockField):
 
         if not isinstance(block, StructBlock):
             raise TypeError(f"StructField requires a StructBlock, got {type(block).__name__}")
+
+        if not isinstance(block, _StructBlock):
+            block = _StructBlock(list(block.child_blocks.items()))
 
         return block
 
@@ -192,7 +223,7 @@ class ListField(BaseBlockField):
                 f"got {type(self.child_block_arg).__name__}"
             )
 
-        block = ListBlock(child_block)
+        block = _ListBlock(child_block)
         block.set_meta_options(self.block_opts)
         return block
 

@@ -58,7 +58,7 @@ class MyPage(Page):
 </ul>
 
 {% for address in page.addresses %}
-    <p>{{ address.value.street }}, {{ address.value.city }}</p>
+    <p>{{ address.street }}, {{ address.city }}</p>
 {% endfor %}
 ```
 
