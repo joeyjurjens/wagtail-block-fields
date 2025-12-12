@@ -1,0 +1,57 @@
+[project]
+name = "wagtail-block-fields"
+version = "0.1.0"
+description = "Allows using StructBlock and ListBlock as model fields"
+readme = "README.md"
+authors = [
+    { name = "Joey Jurjens", email = "joeyjurjens@gmail.com" }
+]
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "wagtail>=6.3",
+]
+
+[project.urls]
+Repository = "https://github.com/joeyjurjens/wagtail-block-fields"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wagtail_block_fields"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-django>=4.11.1",
+    "ruff>=0.8.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["wagtail_block_fields"]
+section-order = [
+  "future",
+  "standard-library",
+  "django",
+  "wagtail",
+  "third-party",
+  "first-party",
+  "local-folder",
+]
+
+[tool.ruff.lint.isort.sections]
+django = ["django", "django_*"]
+wagtail = ["wagtail", "wagtail_*"]
