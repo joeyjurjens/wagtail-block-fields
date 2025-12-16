@@ -191,6 +191,46 @@ class StructFieldTests(TestCase):
         self.assertEqual(loaded.section["heading"], "My Section")
         self.assertEqual(len(loaded.section["content"]), 1)
 
+    def test_default(self):
+        field = StructField(
+            AddressBlock(),
+            default={"street": "Default Street", "city": "Default City"},
+        )
+        default = field.get_default()
+        self.assertIsInstance(default, StructValue)
+        self.assertEqual(default["street"], "Default Street")
+        self.assertEqual(default["city"], "Default City")
+
+    def test_default_from_child_blocks(self):
+        field = StructField(
+            [
+                ("title", CharBlock(default="Default Title")),
+                ("count", IntegerBlock(default=42)),
+            ]
+        )
+        default = field.get_default()
+        self.assertEqual(default["title"], "Default Title")
+        self.assertEqual(default["count"], 42)
+
+    def test_default_callable(self):
+        def callable_default():
+            return {"street": "Callable Street", "city": "Callable City"}
+
+        field = StructField(AddressBlock(), default=callable_default)
+        default = field.get_default()
+        self.assertEqual(default["street"], "Callable Street")
+        self.assertEqual(default["city"], "Callable City")
+
+    def test_default_in_form(self):
+        field = StructField(
+            AddressBlock(),
+            default={"street": "Form Street", "city": "Form City"},
+        )
+        form_field = field.formfield()
+        form_html = form_field.widget.render("address", field.get_default())
+        self.assertIn("Form Street", form_html)
+        self.assertIn("Form City", form_html)
+
 
 class ListFieldTests(TestCase):
     def test_init_with_block_instance(self):
@@ -331,6 +371,45 @@ class ListFieldTests(TestCase):
                     {"type": "item", "value": "three", "id": "c"},
                 ]
             )
+
+    def test_default(self):
+        field = ListField(CharBlock(), default=["one", "two", "three"])
+        default = field.get_default()
+        self.assertIsInstance(default, ListValue)
+        self.assertEqual(list(default), ["one", "two", "three"])
+
+    def test_default_callable(self):
+        def callable_default():
+            return ["chocolate", "vanilla"]
+
+        field = ListField(CharBlock(), default=callable_default)
+        default = field.get_default()
+        self.assertEqual(list(default), ["chocolate", "vanilla"])
+
+    def test_default_from_child_block(self):
+        field = ListField(CharBlock(default="chocolate"))
+        default = field.get_default()
+        self.assertEqual(list(default), ["chocolate"])
+
+    def test_default_with_struct_block(self):
+        field = ListField(
+            AddressBlock(),
+            default=[
+                {"street": "Main St", "city": "Amsterdam"},
+                {"street": "Oak Ave", "city": "Rotterdam"},
+            ],
+        )
+        default = field.get_default()
+        self.assertEqual(len(default), 2)
+        self.assertEqual(default[0]["street"], "Main St")
+        self.assertEqual(default[1]["city"], "Rotterdam")
+
+    def test_default_in_form(self):
+        field = ListField(CharBlock(), default=["form-item-1", "form-item-2"])
+        form_field = field.formfield()
+        form_html = form_field.widget.render("tags", field.get_default())
+        self.assertIn("form-item-1", form_html)
+        self.assertIn("form-item-2", form_html)
 
     def test_list_of_lists(self):
         obj = NestedTestModel.objects.create(

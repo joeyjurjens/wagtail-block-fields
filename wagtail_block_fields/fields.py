@@ -166,6 +166,8 @@ class StructField(BaseBlockField):
         return self.block.get_default()
 
     def get_default(self):
+        if self.has_default():
+            return self.block.normalize(super().get_default())
         return self.block.get_default()
 
     def deconstruct(self):
@@ -235,7 +237,9 @@ class ListField(BaseBlockField):
         return self.block.empty_value()
 
     def get_default(self):
-        return self.block.empty_value()
+        if self.has_default():
+            return self.block.normalize(super().get_default())
+        return self.block.get_default()
 
     def deconstruct(self):
         name, path, _, kwargs = super().deconstruct()
