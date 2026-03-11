@@ -32,7 +32,7 @@ class _ListBlock(ListBlock):
 
 
 class _StructBlock(StructBlock):
-    """Fixes missing form data handling for nested blocks."""
+    """StructBlock with fixed form data handling for inline-defined blocks."""
 
     def get_prep_value(self, value):
         if not value:
@@ -159,7 +159,7 @@ class StructField(BaseBlockField):
             raise TypeError(f"StructField requires a StructBlock, got {type(block).__name__}")
 
         if not isinstance(block, _StructBlock):
-            block = _StructBlock(list(block.child_blocks.items()))
+            block.__class__ = type(block.__class__.__name__, (_StructBlock, block.__class__), {})
 
         return block
 

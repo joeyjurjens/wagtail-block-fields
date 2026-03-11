@@ -4,7 +4,14 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from wagtail.blocks import CharBlock, IntegerBlock, StructBlock
+from wagtail.blocks import (
+    CharBlock,
+    IntegerBlock,
+    ListBlock,
+    RichTextBlock,
+    StreamBlock,
+    StructBlock,
+)
 from wagtail.blocks.list_block import ListValue
 from wagtail.blocks.struct_block import StructValue
 from wagtail.documents.models import Document
@@ -244,6 +251,35 @@ class StructFieldTests(TestCase):
         result = form_field.has_changed(None, None)
         self.assertFalse(result)
 
+    def test_value_from_datadict_with_nested_streamblock(self):
+        field = StructField(
+            [
+                ("heading", CharBlock()),
+                ("content", StreamBlock([("paragraph", RichTextBlock())])),
+            ],
+            null=True,
+            blank=True,
+        )
+        form_field = field.formfield()
+        # Only heading is submitted, content (StreamBlock) data is completely absent
+        data = {"test-heading": "Hello"}
+        value = form_field.widget.value_from_datadict(data, {}, "test")
+        self.assertEqual(value["heading"], "Hello")
+
+    def test_value_from_datadict_with_nested_listblock(self):
+        field = StructField(
+            [
+                ("title", CharBlock()),
+                ("items", ListBlock(CharBlock())),
+            ],
+            null=True,
+            blank=True,
+        )
+        form_field = field.formfield()
+        data = {"test-title": "Hello"}
+        value = form_field.widget.value_from_datadict(data, {}, "test")
+        self.assertEqual(value["title"], "Hello")
+
 
 class ListFieldTests(TestCase):
     def test_init_with_block_instance(self):
@@ -423,6 +459,19 @@ class ListFieldTests(TestCase):
         form_html = form_field.widget.render("tags", field.get_default())
         self.assertIn("form-item-1", form_html)
         self.assertIn("form-item-2", form_html)
+
+    def test_formfield_has_changed_with_none_initial(self):
+        field = ListField(CharBlock(), null=True, blank=True)
+        form_field = field.formfield()
+        data = field.block.to_python(["one", "two"])
+        result = form_field.has_changed(None, data)
+        self.assertTrue(result)
+
+    def test_formfield_has_changed_with_none_both(self):
+        field = ListField(CharBlock(), null=True, blank=True)
+        form_field = field.formfield()
+        result = form_field.has_changed(None, None)
+        self.assertFalse(result)
 
     def test_list_of_lists(self):
         obj = NestedTestModel.objects.create(
