@@ -34,6 +34,11 @@ class _ListBlock(ListBlock):
 class _StructBlock(StructBlock):
     """Fixes missing form data handling for nested blocks."""
 
+    def get_prep_value(self, value):
+        if not value:
+            return {}
+        return super().get_prep_value(value)
+
     def value_from_datadict(self, data, files, prefix):
         return self._to_struct_value(
             [

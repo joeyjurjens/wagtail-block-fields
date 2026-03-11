@@ -231,6 +231,19 @@ class StructFieldTests(TestCase):
         self.assertIn("Form Street", form_html)
         self.assertIn("Form City", form_html)
 
+    def test_formfield_has_changed_with_none_initial(self):
+        field = StructField(AddressBlock(), null=True, blank=True)
+        form_field = field.formfield()
+        data = field.block.to_python({"street": "123 Main St", "city": "Amsterdam"})
+        result = form_field.has_changed(None, data)
+        self.assertTrue(result)
+
+    def test_formfield_has_changed_with_none_both(self):
+        field = StructField(AddressBlock(), null=True, blank=True)
+        form_field = field.formfield()
+        result = form_field.has_changed(None, None)
+        self.assertFalse(result)
+
 
 class ListFieldTests(TestCase):
     def test_init_with_block_instance(self):
