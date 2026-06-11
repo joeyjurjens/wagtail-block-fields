@@ -17,13 +17,14 @@ from wagtail.blocks.struct_block import StructValue
 from wagtail.documents.models import Document
 from wagtail.images.models import Image
 from wagtail.models import Page
-from wagtail_block_fields import ListField, StructField
+from wagtail_block_fields import ListField, MultipleChoiceField, StructField
 
 from PIL import Image as PILImage
 
 from .testapp.models import (
     AddressBlock,
     ChooserTestModel,
+    MultipleChoiceTestModel,
     NestedTestModel,
     StreamBlockTestModel,
     TestModel,
@@ -485,3 +486,119 @@ class ListFieldTests(TestCase):
         )
         loaded = NestedTestModel.objects.get(pk=obj.pk)
         self.assertEqual(loaded.address_groups[0][0]["city"], "Amsterdam")
+
+
+COLOR_CHOICES = [
+    ("red", "Red"),
+    ("green", "Green"),
+    ("blue", "Blue"),
+]
+
+
+class MultipleChoiceFieldTests(TestCase):
+    def test_init_with_choices(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        self.assertIsNotNone(field.block)
+        self.assertEqual(len(list(field.block.field.choices)), 3)
+
+    def test_init_without_choices_raises(self):
+        field = MultipleChoiceField(choices=None)
+        with self.assertRaises(TypeError):
+            _ = field.block
+
+    def test_to_python_with_list(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        value = field.to_python(["red", "blue"])
+        self.assertIsInstance(value, list)
+        self.assertEqual(value, ["red", "blue"])
+
+    def test_to_python_with_none(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        value = field.to_python(None)
+        self.assertEqual(value, [])
+
+    def test_to_python_with_json_string(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        value = field.to_python('["red", "green"]')
+        self.assertEqual(value, ["red", "green"])
+
+    def test_to_python_with_empty_list(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        value = field.to_python([])
+        self.assertEqual(value, [])
+
+    def test_get_prep_value(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        prep = field.get_prep_value(["red", "blue"])
+        self.assertEqual(prep, ["red", "blue"])
+
+    def test_get_prep_value_with_none(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        self.assertEqual(field.get_prep_value(None), [])
+
+    def test_get_prep_value_with_empty_list(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        self.assertEqual(field.get_prep_value([]), [])
+
+    def test_deconstruct(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        name, path, args, kwargs = field.deconstruct()
+        self.assertIn("choices", kwargs)
+        self.assertEqual(kwargs["choices"], COLOR_CHOICES)
+
+    def test_save_and_load(self):
+        obj = MultipleChoiceTestModel.objects.create(name="Test", colors=["red", "blue"])
+        loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
+        self.assertIsInstance(loaded.colors, list)
+        self.assertEqual(loaded.colors, ["red", "blue"])
+
+    def test_save_and_load_empty(self):
+        obj = MultipleChoiceTestModel.objects.create(name="Test", colors=[])
+        loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
+        self.assertEqual(loaded.colors, [])
+
+    def test_update(self):
+        obj = MultipleChoiceTestModel.objects.create(name="Test", colors=["red"])
+        obj.colors = ["green", "blue"]
+        obj.save()
+        loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
+        self.assertEqual(loaded.colors, ["green", "blue"])
+
+    def test_formfield(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        form_field = field.formfield()
+        self.assertIsNotNone(form_field)
+
+    def test_formfield_renders_choices(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        form_field = field.formfield()
+        form_html = form_field.widget.render("colors", ["red", "blue"])
+        self.assertIn("red", form_html)
+        self.assertIn("blue", form_html)
+
+    def test_default(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES, default=["red", "green"])
+        default = field.get_default()
+        self.assertEqual(default, ["red", "green"])
+
+    def test_default_callable(self):
+        def callable_default():
+            return ["blue"]
+
+        field = MultipleChoiceField(choices=COLOR_CHOICES, default=callable_default)
+        default = field.get_default()
+        self.assertEqual(default, ["blue"])
+
+    def test_default_empty(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES)
+        default = field.get_default()
+        self.assertEqual(default, [])
+
+    def test_nested_in_struct(self):
+        obj = MultipleChoiceTestModel.objects.create(
+            name="Test",
+            info={"label": "My Tags", "tags": ["red", "green"]},
+        )
+        loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
+        self.assertEqual(loaded.info["label"], "My Tags")
+        self.assertEqual(loaded.info["tags"], ["red", "green"])

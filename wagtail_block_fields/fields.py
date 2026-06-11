@@ -1,5 +1,5 @@
 """
-StructField and ListField for Wagtail.
+StructField, ListField and MultipleChoiceField for Wagtail.
 
 API based on how StreamField wraps StreamBlock:
 https://github.com/wagtail/wagtail/blob/main/wagtail/fields.py
@@ -17,6 +17,7 @@ from wagtail.blocks.definition_lookup import (
     BlockDefinitionLookup,
     BlockDefinitionLookupBuilder,
 )
+from wagtail.blocks.field_block import MultipleChoiceBlock
 from wagtail.blocks.list_block import ListValue
 from wagtail.blocks.struct_block import StructValue
 from wagtail.fields import Creator
@@ -275,4 +276,49 @@ class ListField(BaseBlockField):
             return self.block.get_prep_value(value)
         if isinstance(value, list):
             return self.block.get_prep_value(self.block.normalize(value))
+        return []
+
+
+class MultipleChoiceField(BaseBlockField):
+    def __init__(self, choices=None, block_lookup=None, **kwargs):
+        self._field_choices = choices
+        super().__init__(block_lookup=block_lookup, **kwargs)
+
+    @cached_property
+    def block(self):
+        if self._field_choices is not None:
+            return MultipleChoiceBlock(choices=self._field_choices)
+        else:
+            raise TypeError("MultipleChoiceField requires choices to be provided")
+
+    def empty_value(self):
+        return []
+
+    def get_default(self):
+        if self.has_default():
+            return super().get_default()
+        return []
+
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        kwargs["choices"] = self._field_choices
+        return name, path, args, kwargs
+
+    def to_python(self, value):
+        if value is None:
+            return []
+        if isinstance(value, str) and value:
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return []
+        if isinstance(value, list):
+            return self.block.normalize(value)
+        return []
+
+    def get_prep_value(self, value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return list(value)
         return []

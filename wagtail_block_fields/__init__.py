@@ -1,3 +1,3 @@
-from .fields import BaseBlockField, ListField, StructField
+from .fields import BaseBlockField, ListField, MultipleChoiceField, StructField
 
-__all__ = ["BaseBlockField", "StructField", "ListField"]
+__all__ = ["BaseBlockField", "StructField", "ListField", "MultipleChoiceField"]

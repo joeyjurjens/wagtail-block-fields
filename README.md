@@ -1,10 +1,11 @@
 # wagtail-block-fields
 
-Use Wagtail's `StructBlock` and `ListBlock` as standalone model fields.
+Use Wagtail's `StructBlock`, `ListBlock`, and `MultipleChoiceBlock` as standalone model fields.
 
 Just like `StreamField` wraps `StreamBlock`, this package provides:
 - **`StructField`** - wraps a `StructBlock`
 - **`ListField`** - wraps a `ListBlock`
+- **`MultipleChoiceField`** - wraps a `MultipleChoiceBlock`
 
 ## Installation
 
@@ -46,6 +47,21 @@ class MyPage(Page):
     addresses = ListField(AddressBlock())
 ```
 
+### MultipleChoiceField
+
+```python
+from wagtail_block_fields import MultipleChoiceField
+
+COLOR_CHOICES = [
+    ("red", "Red"),
+    ("green", "Green"),
+    ("blue", "Blue"),
+]
+
+class MyPage(Page):
+    colors = MultipleChoiceField(choices=COLOR_CHOICES)
+```
+
 ### In templates
 
 ```html
@@ -54,6 +70,12 @@ class MyPage(Page):
 <ul>
 {% for tag in page.tags %}
     <li>{{ tag }}</li>
+{% endfor %}
+</ul>
+
+<ul>
+{% for color in page.colors %}
+    <li>{{ color }}</li>
 {% endfor %}
 </ul>
 
@@ -70,6 +92,7 @@ Sometimes you need structured JSON data in a single field without the complexity
 - Provide full Wagtail admin editing UI
 - Support validation, search indexing, and reference extraction
 - Work with migrations just like StreamField
+- Support nesting (e.g., `MultipleChoiceField` inside a `StructField`)
 
 ## License
 

@@ -1,10 +1,16 @@
 from django.db import models
 
 from wagtail.blocks import CharBlock, ListBlock, RichTextBlock, StreamBlock, StructBlock
-from wagtail.blocks.field_block import PageChooserBlock
+from wagtail.blocks.field_block import MultipleChoiceBlock, PageChooserBlock
 from wagtail.documents.blocks import DocumentChooserBlock
 from wagtail.images.blocks import ImageChooserBlock
-from wagtail_block_fields import ListField, StructField
+from wagtail_block_fields import ListField, MultipleChoiceField, StructField
+
+COLOR_CHOICES = [
+    ("red", "Red"),
+    ("green", "Green"),
+    ("blue", "Blue"),
+]
 
 
 class AddressBlock(StructBlock):
@@ -80,6 +86,22 @@ class StreamBlockTestModel(models.Model):
                     ]
                 ),
             ),
+        ],
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        app_label = "testapp"
+
+
+class MultipleChoiceTestModel(models.Model):
+    name = models.CharField(max_length=255)
+    colors = MultipleChoiceField(choices=COLOR_CHOICES, null=True, blank=True)
+    info = StructField(
+        [
+            ("label", CharBlock()),
+            ("tags", MultipleChoiceBlock(choices=COLOR_CHOICES)),
         ],
         null=True,
         blank=True,
