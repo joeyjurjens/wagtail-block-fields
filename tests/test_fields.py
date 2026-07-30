@@ -602,3 +602,17 @@ class MultipleChoiceFieldTests(TestCase):
         loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
         self.assertEqual(loaded.info["label"], "My Tags")
         self.assertEqual(loaded.info["tags"], ["red", "green"])
+
+    def test_blank_true_form_validation(self):
+        field = MultipleChoiceField(choices=COLOR_CHOICES, blank=True)
+        form_field = field.formfield()
+        self.assertFalse(form_field.required)
+        result = form_field.clean(None)
+        self.assertEqual(result, [])
+        result = form_field.clean([])
+        self.assertEqual(result, [])
+
+    def test_blank_true_save_empty(self):
+        obj = MultipleChoiceTestModel.objects.create(name="Test", colors=[])
+        loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
+        self.assertEqual(loaded.colors, [])

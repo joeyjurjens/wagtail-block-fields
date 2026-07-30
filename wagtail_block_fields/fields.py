@@ -287,7 +287,7 @@ class MultipleChoiceField(BaseBlockField):
     @cached_property
     def block(self):
         if self._field_choices is not None:
-            return MultipleChoiceBlock(choices=self._field_choices)
+            return MultipleChoiceBlock(choices=self._field_choices, required=not self.blank)
         else:
             raise TypeError("MultipleChoiceField requires choices to be provided")
 
