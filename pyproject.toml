@@ -1,6 +1,6 @@
 [project]
 name = "wagtail-block-fields"
-version = "0.3.1"
+version = "0.4.0"
 description = "Allows using StructBlock, ListBlock, and MultipleChoiceBlock as model fields"
 readme = "README.md"
 authors = [
