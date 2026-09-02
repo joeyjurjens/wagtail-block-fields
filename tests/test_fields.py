@@ -281,6 +281,14 @@ class StructFieldTests(TestCase):
         value = form_field.widget.value_from_datadict(data, {}, "test")
         self.assertEqual(value["title"], "Hello")
 
+    def test_block_meta_options_reach_the_block(self):
+        """`collapsed` is a StructBlock Meta option, so a field has to pass it
+        on rather than hand it to Django's `Field`."""
+        field = StructField(AddressBlock(), collapsed=True, label_format="{street}")
+        self.assertTrue(field.block.meta.collapsed)
+        self.assertEqual(field.block.meta.label_format, "{street}")
+        self.assertNotIn("collapsed", field.deconstruct()[3])
+
 
 class ListFieldTests(TestCase):
     def test_init_with_block_instance(self):
@@ -487,6 +495,15 @@ class ListFieldTests(TestCase):
         loaded = NestedTestModel.objects.get(pk=obj.pk)
         self.assertEqual(loaded.address_groups[0][0]["city"], "Amsterdam")
 
+    def test_block_meta_options_reach_the_block(self):
+        """Wagtail leaves `collapsed` out of `ListBlock.MUTABLE_META_ATTRIBUTES`
+        even though it documents it, so listing it is on us. Being mutable is
+        what keeps changing it from needing a migration."""
+        field = ListField(CharBlock(), collapsed=True, min_num=1)
+        self.assertTrue(field.block.meta.collapsed)
+        self.assertEqual(field.block.meta.min_num, 1)
+        self.assertEqual(ListField(CharBlock()).deconstruct()[1:], field.deconstruct()[1:])
+
 
 COLOR_CHOICES = [
     ("red", "Red"),
@@ -616,3 +633,9 @@ class MultipleChoiceFieldTests(TestCase):
         obj = MultipleChoiceTestModel.objects.create(name="Test", colors=[])
         loaded = MultipleChoiceTestModel.objects.get(pk=obj.pk)
         self.assertEqual(loaded.colors, [])
+
+    def test_block_meta_options_reach_the_block(self):
+        """`MultipleChoiceBlock` inherits an empty mutable set, so without one
+        of our own `set_meta_options` would accept nothing."""
+        field = MultipleChoiceField(choices=[("a", "A"), ("b", "B")], form_classname="tags")
+        self.assertEqual(field.block.meta.form_classname, "tags")

@@ -24,7 +24,21 @@ from wagtail.fields import Creator
 
 
 class _ListBlock(ListBlock):
-    """Fixes missing form data handling for nested blocks."""
+    """Fixes missing form data handling for nested blocks.
+
+    Also widens `MUTABLE_META_ATTRIBUTES`. Wagtail documents `collapsed` and the
+    form options as `ListBlock` Meta options, but leaves them out of the mutable
+    set - unlike `StreamBlock`, which lists `collapsed` there and so lets
+    `StreamField` pass it through. Everything named here can be changed without
+    a migration, which is what the mutable set is for.
+    """
+
+    MUTABLE_META_ATTRIBUTES = ListBlock.MUTABLE_META_ATTRIBUTES + [
+        "collapsed",
+        "form_classname",
+        "form_attrs",
+        "search_index",
+    ]
 
     def value_from_datadict(self, data, files, prefix):
         if self.value_omitted_from_data(data, files, prefix):
@@ -33,7 +47,20 @@ class _ListBlock(ListBlock):
 
 
 class _StructBlock(StructBlock):
-    """StructBlock with fixed form data handling for inline-defined blocks."""
+    """StructBlock with fixed form data handling for inline-defined blocks.
+
+    Also declares a `MUTABLE_META_ATTRIBUTES`, which `StructBlock` leaves empty:
+    without one, `set_meta_options` accepts nothing and a field has no way to
+    pass the block its own Meta options.
+    """
+
+    MUTABLE_META_ATTRIBUTES = [
+        "collapsed",
+        "form_classname",
+        "form_attrs",
+        "label_format",
+        "search_index",
+    ]
 
     def get_prep_value(self, value):
         if not value:
@@ -130,6 +157,11 @@ class BaseBlockField(models.Field):
 
 class StructField(BaseBlockField):
     def __init__(self, block_type, block_lookup=None, **kwargs):
+        self.block_opts = {
+            name: kwargs.pop(name)
+            for name in _StructBlock.MUTABLE_META_ATTRIBUTES
+            if name in kwargs
+        }
         self.block_type_arg = block_type
         super().__init__(block_lookup=block_lookup, **kwargs)
 
@@ -162,6 +194,7 @@ class StructField(BaseBlockField):
         if not isinstance(block, _StructBlock):
             block.__class__ = type(block.__class__.__name__, (_StructBlock, block.__class__), {})
 
+        block.set_meta_options(self.block_opts)
         return block
 
     @property
@@ -212,12 +245,14 @@ class StructField(BaseBlockField):
 
 
 class ListField(BaseBlockField):
+    #: Meta options `ListBlock` accepts, forwarded to the block rather than
+    #: handed to Django's `Field`. Without this a caller writing
+    #: `ListField(Child(), collapsed=True)` gets a `TypeError` from `Field`,
+    #: which says nothing about where the argument was meant to go.
     def __init__(self, child_block, block_lookup=None, **kwargs):
-        self.block_opts = {}
-        for arg in ["min_num", "max_num"]:
-            if arg in kwargs:
-                self.block_opts[arg] = kwargs.pop(arg)
-
+        self.block_opts = {
+            name: kwargs.pop(name) for name in _ListBlock.MUTABLE_META_ATTRIBUTES if name in kwargs
+        }
         self.child_block_arg = child_block
         super().__init__(block_lookup=block_lookup, **kwargs)
 
@@ -279,17 +314,33 @@ class ListField(BaseBlockField):
         return []
 
 
+class _MultipleChoiceBlock(MultipleChoiceBlock):
+    """See `_StructBlock` - a field needs somewhere to put its Meta options."""
+
+    MUTABLE_META_ATTRIBUTES = [
+        "form_classname",
+        "form_attrs",
+        "search_index",
+    ]
+
+
 class MultipleChoiceField(BaseBlockField):
     def __init__(self, choices=None, block_lookup=None, **kwargs):
+        self.block_opts = {
+            name: kwargs.pop(name)
+            for name in _MultipleChoiceBlock.MUTABLE_META_ATTRIBUTES
+            if name in kwargs
+        }
         self._field_choices = choices
         super().__init__(block_lookup=block_lookup, **kwargs)
 
     @cached_property
     def block(self):
-        if self._field_choices is not None:
-            return MultipleChoiceBlock(choices=self._field_choices, required=not self.blank)
-        else:
+        if self._field_choices is None:
             raise TypeError("MultipleChoiceField requires choices to be provided")
+        block = _MultipleChoiceBlock(choices=self._field_choices, required=not self.blank)
+        block.set_meta_options(self.block_opts)
+        return block
 
     def empty_value(self):
         return []
