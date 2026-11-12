@@ -6,8 +6,11 @@ https://github.com/wagtail/wagtail/blob/main/wagtail/fields.py
 https://github.com/wagtail/wagtail/blob/main/wagtail/blocks/stream_block.py
 """
 
+import copyreg
 import json
+from pickle import PickleError
 
+from django.apps import apps
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils.functional import cached_property
@@ -83,6 +86,32 @@ class _StructBlock(StructBlock):
         )
 
 
+def reduce_block_value(value):
+    """Pickles a value as its field and the data it holds, as `StreamValue` does.
+
+    The block of a value cannot be pickled when its class is generated, so the
+    field it came from rebuilds it. Registered per value class, because the value
+    classes of `StructBlock` subclasses are not ours to give a `__reduce__`.
+    """
+    field = getattr(value, "_block_field", None)
+    if field is None:
+        raise PickleError("A block value can only be pickled when it belongs to a block field")
+    return (
+        restore_block_value,
+        (
+            field.model._meta.app_label,
+            field.model._meta.object_name,
+            field.name,
+            field.get_prep_value(value),
+        ),
+    )
+
+
+def restore_block_value(app_label, model_name, field_name, prepared):
+    field = apps.get_model(app_label, model_name)._meta.get_field(field_name)
+    return field.to_python(prepared)
+
+
 class BaseBlockField(models.Field):
     def __init__(self, block_lookup=None, **kwargs):
         self.block_lookup = block_lookup
@@ -154,6 +183,12 @@ class BaseBlockField(models.Field):
         super().contribute_to_class(cls, name, **kwargs)
         setattr(cls, self.name, Creator(self))
 
+    def own(self, value):
+        value._block_field = self
+        if type(value) not in copyreg.dispatch_table:
+            copyreg.pickle(type(value), reduce_block_value)
+        return value
+
 
 class StructField(BaseBlockField):
     def __init__(self, block_type, block_lookup=None, **kwargs):
@@ -222,17 +257,17 @@ class StructField(BaseBlockField):
 
     def to_python(self, value):
         if value is None:
-            return self.block.get_default()
+            return self.own(self.block.get_default())
         if isinstance(value, StructValue):
-            return value
+            return self.own(value)
         if isinstance(value, str) and value:
             try:
                 value = json.loads(value)
             except ValueError:
-                return self.block.get_default()
+                return self.own(self.block.get_default())
         if isinstance(value, dict):
-            return self.block.to_python(value)
-        return self.block.get_default()
+            return self.own(self.block.to_python(value))
+        return self.own(self.block.get_default())
 
     def get_prep_value(self, value):
         if value is None:
@@ -292,17 +327,17 @@ class ListField(BaseBlockField):
 
     def to_python(self, value):
         if value is None:
-            return self.block.empty_value()
+            return self.own(self.block.empty_value())
         if isinstance(value, ListValue):
-            return value
+            return self.own(value)
         if isinstance(value, str) and value:
             try:
                 value = json.loads(value)
             except ValueError:
-                return self.block.empty_value()
+                return self.own(self.block.empty_value())
         if isinstance(value, list):
-            return self.block.to_python(value)
-        return self.block.empty_value()
+            return self.own(self.block.to_python(value))
+        return self.own(self.block.empty_value())
 
     def get_prep_value(self, value):
         if value is None:

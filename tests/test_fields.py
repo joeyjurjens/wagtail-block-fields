@@ -1,4 +1,6 @@
 import io
+import pickle
+from pickle import PickleError
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -639,3 +641,50 @@ class MultipleChoiceFieldTests(TestCase):
         of our own `set_meta_options` would accept nothing."""
         field = MultipleChoiceField(choices=[("a", "A"), ("b", "B")], form_classname="tags")
         self.assertEqual(field.block.meta.form_classname, "tags")
+
+
+class PickleTests(TestCase):
+    def roundtrip(self, value):
+        return pickle.loads(pickle.dumps(value))
+
+    def test_a_struct_value_is_pickled_through_its_field(self):
+        obj = TestModel.objects.create(
+            name="x", address={"street": "Main", "city": "Town", "postal_code": ""}
+        )
+        obj.refresh_from_db()
+        back = self.roundtrip(obj.address)
+        self.assertIsInstance(back, StructValue)
+        self.assertEqual(back["street"], "Main")
+        self.assertEqual(back["city"], "Town")
+
+    def test_a_model_with_block_fields_is_pickled(self):
+        obj = TestModel.objects.create(
+            name="x",
+            address={"street": "Main", "city": "Town", "postal_code": ""},
+            tags=["a", "b"],
+        )
+        obj.refresh_from_db()
+        back = self.roundtrip(obj)
+        self.assertEqual(back.address["city"], "Town")
+        self.assertEqual(list(back.tags), ["a", "b"])
+
+    def test_a_list_value_is_pickled_through_its_field(self):
+        obj = TestModel.objects.create(
+            name="x", addresses=[{"street": "Main", "city": "Town", "postal_code": ""}]
+        )
+        obj.refresh_from_db()
+        back = self.roundtrip(obj.addresses)
+        self.assertIsInstance(back, ListValue)
+        self.assertEqual(back[0]["street"], "Main")
+
+    def test_a_value_made_from_the_default_is_pickled(self):
+        obj = TestModel(name="x")
+        self.assertEqual(
+            self.roundtrip(obj.address)["street"] if obj.address else None,
+            obj.address["street"] if obj.address else None,
+        )
+
+    def test_a_value_that_belongs_to_no_field_cannot_be_pickled(self):
+        value = StructBlock([("a", CharBlock())]).to_python({"a": "x"})
+        with self.assertRaises(PickleError):
+            pickle.dumps(value)
