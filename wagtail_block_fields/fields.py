@@ -70,6 +70,11 @@ class _StructBlock(StructBlock):
             return {}
         return super().get_prep_value(value)
 
+    def get_form_state(self, value):
+        # a form without an instance, like the add view of a snippet, has None as
+        # initial value
+        return super().get_form_state(value or self.get_default())
+
     def value_from_datadict(self, data, files, prefix):
         return self._to_struct_value(
             [

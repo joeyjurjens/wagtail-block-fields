@@ -69,6 +69,10 @@ class StructFieldTests(TestCase):
         self.assertIn("name", field.block.child_blocks)
         self.assertIn("age", field.block.child_blocks)
 
+    def test_form_field_renders_without_initial_value(self):
+        form_field = TestModel._meta.get_field("address").formfield()
+        self.assertIn("address", form_field.widget.render("address", None))
+
     def test_to_python_with_dict(self):
         field = StructField(AddressBlock())
         value = field.to_python({"street": "123 Main St", "city": "Amsterdam"})
